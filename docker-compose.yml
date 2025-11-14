@@ -1,0 +1,55 @@
+x-env-file: &default-env
+  env_file:
+    - .env
+
+services:
+  mysql-db:
+    image: mysql:8.0
+    restart: always
+    container_name: hackaton-db
+    <<: *default-env
+    environment:
+      - MYSQL_ROOT_PASSWORD=$MYSQLDB_ROOT_PASSWORD
+      - MYSQL_DATABASE=$MYSQLDB_DATABASE
+    ports:
+      - $MYSQLDB_EXTERNAL_PORT:3306
+    volumes:
+      - db:/var/lib/mysql
+      - ./SenaiDeskPro-BackEnd/db/db_dump.sql:/docker-entrypoint-initdb.d/db_dump.sql
+
+  desk-pro-api:
+    container_name: desk-pro-api
+    build: /SenaiDeskPro-BackEnd/.
+    depends_on:
+      - mysql-db
+    restart: unless-stopped
+    <<: *default-env
+    ports:
+      - $API_EXTERNAL_PORT:8000
+    environment:
+      - DB_HOST=mysql-db
+      - DB_USER=$MYSQLDB_USER
+      - DB_PASSWORD=$MYSQLDB_ROOT_PASSWORD
+      - DB_NAME=$MYSQLDB_DATABASE
+      - DB_PORT=3306
+      - DATABASE_URL=mysql://$MYSQLDB_USER:$MYSQLDB_ROOT_PASSWORD@mysql-db:3306/$MYSQLDB_DATABASE
+      - API_PORT=$API_PORT
+      - API_HOST=$API_HOST
+      - API_BASE_PATH=$API_BASE_PATH
+    stdin_open: true
+    tty: true
+
+  desk-pro-web:
+    container_name: desk-pro-web
+    build: /SenaiDeskPro-FrontEnd/.
+    depends_on:
+      - desk-pro-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV="production"
+      - NEXT_PUBLIC_API_URL="http://127.0.0.1:8080"
+    ports:
+      - "3333:3000"
+
+volumes: 
+  db:
